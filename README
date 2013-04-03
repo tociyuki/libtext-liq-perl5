@@ -1,0 +1,25 @@
+Text-Liq version 0.01
+
+This is one of the fork from Ruby's template processor Liquid.
+Its behaviour is almost same as original Liquid's one without
+html table row markup.
+
+INSTALLATION
+
+To install this module, run the following commands:
+
+	perl Makefile.PL
+	make
+	make test
+	make install
+
+DEPENDENCIES
+
+Time::Piece POSIX Encode Scalar::Util Test::Base
+
+COPYRIGHT AND LICENCE
+
+Copyright (C) 2013, MIZUTANI Tociyuki
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.

@@ -1,0 +1,27 @@
+Changes
+lib/Text/Liq.pm
+lib/Text/Liq/Compiler.pm
+lib/Text/Liq/Disasm.pm
+lib/Text/Liq/Filter.pm
+Makefile.PL
+MANIFEST			This list of files
+README
+t/00.load.t
+t/01.assign.t
+t/02.capture.t
+t/03.condition.t
+t/04.stdfilter.t
+t/05.stdmarkup.t
+t/06.statements.t
+t/07.break.t
+t/08.continue.t
+t/09.for.t
+t/10.if-else.t
+t/11.raw.t
+t/12.unless.t
+t/13.increment.t
+t/14.include.t
+t/15.attribute.t
+t/perlcritic.t
+t/pod-coverage.t
+t/pod.t
