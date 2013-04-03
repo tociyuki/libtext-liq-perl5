@@ -269,14 +269,13 @@ __END__
 <tt>3456</tt>
 
 === for limit: var offset: var
-cannot use variable name limit and offset.
 --- input
-<tt>{%for i in array limit: n offset: m %}{{ i }}{%endfor%}</tt>
+<tt>{%for i in array limit:limit offset:offset %}{{ i }}{%endfor%}</tt>
 --- param
 +{
     'array' => [1, 2, 3, 4, 5, 6, 7, 8, 9, 0],
-    'n' => 4,
-    'm' => 2,
+    'limit' => 4,
+    'offset' => 2,
 }
 --- expected
 <tt>3456</tt>

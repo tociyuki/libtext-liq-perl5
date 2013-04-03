@@ -12,27 +12,27 @@ our $VERSION = '0.01';
 
 my $STACK_LIMIT = 50;
 
-my(# 60 terminals
+my(# 58 terminals
     $EOF, $PLAIN, $CONST, $STRING, $NUMBER, $ESCAPE, $NOESCAPE,
     $ASSIGN, $CAPTURE, $DECREMENT, $INCREMENT, $INCLUDE, $CASE,
     $FOR, $IF, $UNLESS, $ELSE, $IFCHANGED, $CYCLE, $FILTER,
     $OR, $AND, $NOT, $RANGE, $REVERSED, $BREAK, $CONTINUE,
     $EQ, $NE, $LT, $LE, $GT, $GE, $CONTAINS, $VARIABLE,
-    $OFFSET, $LIMIT, $WITH, $EQUIV, $IN, $DOT, $COLON, $COMMA,
+    $WITH, $EQUIV, $IN, $DOT, $COLON, $COMMA,
     $IDENT, $CMP, $R, $RR, $RRR, $ELSIF, $WHEN, 
     $ENDIF, $ENDUNLESS, $ENDFOR, $ENDCASE, $ENDCAPTURE, $ENDIFCHANGED,
     $LPAREN, $RPAREN, $LSQUARE, $RSQUARE,
-) = (0 .. 59);
+) = (0 .. 57);
 my $LAST_TERMINAL = $RSQUARE;
 my $NONTERM = -100;
-my(# 24 nonterminals
+my(# 23 nonterminals
     $block, $elsif_clauses, $else_clause, $plains, $when_clauses,
     $pipeline, $filter_arguments, $filter_comma_arguments,
-    $for_list, $for_slice, $for_offset, $for_limit, $when_values,
+    $for_list, $for_slice, $for_offset, $when_values,
     $include_with, $include_arguments, $include_comma,
     $value, $variable, $selectors, $expression, $expression1,
     $expression2, $expression3, $expression4,
-) = (0-$NONTERM .. 23-$NONTERM);
+) = (0-$NONTERM .. 22-$NONTERM);
 my $LAST_NONTERMINAL = $expression4;
 my %LCONST = (
     'nil' => undef, 'null' => undef, 'NULL' => undef,
@@ -49,7 +49,7 @@ my %KEYWORD = (
     q[==] => $CMP, q[!=] => $CMP, q[<] => $CMP, q[<=] => $CMP,
     q[>] => $CMP, q[>=] => $CMP, 'contains' => $CMP,
     q[{{] => $ESCAPE, q[}}] => $RR, q[{{{] => $NOESCAPE, q[}}}] => $RRR,
-    q[%}] => $R, 'in' => $IN, 'offset' => $OFFSET, 'limit' => $LIMIT,
+    q[%}] => $R, 'in' => $IN,
     'reversed' => $REVERSED, 'or' => $OR, 'and' => $AND, 'not' => $NOT,
     q[||] => $OR, q[&&] => $AND, q[!] => $NOT, 'with' => $WITH,
     q[=] => $EQUIV, q[|] => $FILTER, q[:] => $COLON, q[,] => $COMMA,
@@ -177,19 +177,16 @@ for my $i ($CONST, $IDENT, $STRING, $NUMBER) {
     $rule[$NONTERM+$for_list][$i] = [$value];
 }
 
-$rule[$NONTERM+$for_slice][$OFFSET] = [
-    $OFFSET, $COLON, $for_offset, \&_set_for_offset, $for_slice];
-$rule[$NONTERM+$for_slice][$LIMIT] = [
-    $LIMIT, $COLON, $for_limit, \&_set_for_limit, $for_slice];
+$rule[$NONTERM+$for_slice][$IDENT] = [
+    $IDENT, $COLON, $for_offset, $for_slice];
 $rule[$NONTERM+$for_slice][$REVERSED] = [
     $REVERSED, \&_set_for_reversed, $for_slice];
 $rule[$NONTERM+$for_slice][$R] = [];
 
 $rule[$NONTERM+$for_offset][$CONTINUE] = [
-    $CONTINUE, \&_make_offset_continue];
+    $CONTINUE, \&_set_offset_continue];
 for my $i ($IDENT, $NUMBER) {
-    $rule[$NONTERM+$for_offset][$i] = [$value];
-    $rule[$NONTERM+$for_limit][$i] = [$value];
+    $rule[$NONTERM+$for_offset][$i] = [$value, \&_set_offset_value];
 }
 
 $rule[$NONTERM+$when_values][$OR] = [
@@ -259,7 +256,7 @@ $rule[$NONTERM+$selectors][$LSQUARE] = [
     $LSQUARE, $value, $RSQUARE, \&_append_second3, $selectors];
 for my $i (
     $EQUIV, $IN, $FILTER, $R, $RR, $RRR, $IDENT, $COLON, $WITH, $FOR,
-    $OR, $AND, $COMMA, $OFFSET, $LIMIT, $REVERSED, $RANGE, $RPAREN,
+    $OR, $AND, $COMMA, $REVERSED, $RANGE, $RPAREN,
     $RSQUARE, $CMP,
 ) {
     $rule[$NONTERM+$selectors][$i] = [];
@@ -446,18 +443,21 @@ sub _for_list_range {
     push @{$_[0]}, [$v2, $v1, $v3];
 }
 
-sub _make_offset_continue {
-    $_[0][-1] = [$_[0][-1]];
+sub _set_offset_continue {
+    my($v0, $v1, $v2) = splice @{$_[0]}, -3;
+    if ($v0 eq 'offset') {
+        $_[0][-1][0] = [$v2];
+    }
 }
 
-sub _set_for_offset {
+sub _set_offset_value {
     my($v0, $v1, $v2) = splice @{$_[0]}, -3;
-    $_[0][-1][0] = $v2;
-}
-
-sub _set_for_limit {
-    my($v0, $v1, $v2) = splice @{$_[0]}, -3;
-    $_[0][-1][1] = $v2;
+    if ($v0 eq 'offset') {
+        $_[0][-1][0] = $v2;
+    }
+    elsif ($v0 eq 'limit') {
+        $_[0][-1][1] = $v2;
+    }
 }
 
 sub _set_for_reversed {
