@@ -337,10 +337,10 @@ sub _make_for {
     push @{$_[0][-1]}, $node;
     push @{$_[0]}, $node;
     my $child = [[$v1, $v3]];
-    my $sig = join q( ), $v0, _flatten([$v1, $v3]);
+    my $group = join q( ), $v0, _flatten($v3); #_flatten([$v1, $v3]);
     push @{$_[0][-1]}, $child;
     push @{$_[0]}, $child;
-    push @{$_[0]}, [[$NUMBER, 0], [$CONST, undef], undef, $sig];
+    push @{$_[0]}, [[$NUMBER, 0], [$CONST, undef], undef, $group];
 }
 
 sub _flatten {
@@ -738,9 +738,9 @@ sub _eval_for {
     my $offset = $for->[2];
     my $limit = _eval_value($for->[3], $env);
     my $reversed = $for->[4];
-    my $sig = $for->[5];
+    my $group = $for->[5];
     if ($offset->[0] eq $CONTINUE) {
-        $offset = $scope->[0]{$sig} ||= 0;
+        $offset = $scope->[0]{$group} ||= 0;
     }
     else {
         $offset = _eval_value($offset, $env);
@@ -757,7 +757,7 @@ sub _eval_for {
     if ($reversed) {
         @array = reverse @array;
     }
-    $scope->[0]{$sig} = $offset + (scalar @array);
+    $scope->[0]{$group} = $offset + (scalar @array);
     my $last_index = $#array;
     if ($last_index < 0) {
         if (exists $expr->[2]) {
