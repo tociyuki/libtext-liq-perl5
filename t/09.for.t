@@ -596,3 +596,15 @@ next
 --- expected
 <tt></tt>
 
+=== local scope
+--- input
+<tt>{%assign x = 'outer' %}{{x}}</tt>
+<tt>{%for x in list %} {{x}}{%endfor%}</tt>
+<tt>{{x}}</tt>
+--- param
++{'list' => ['inner0', 'inner1']}
+--- expected
+<tt>outer</tt>
+<tt> inner0 inner1</tt>
+<tt>outer</tt>
+

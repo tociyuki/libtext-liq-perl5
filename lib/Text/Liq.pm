@@ -765,7 +765,7 @@ sub _eval_for {
         }
         return;
     }
-    push @{$scope}, {};
+    push @{$scope}, {$for->[0][1] => undef};
     my($ref, $reftype, $slot) = _eval_variable($for->[0], $env);
     for my $i (0 .. $#array) {
         $ref->{$slot} = $array[$i];
