@@ -556,7 +556,7 @@ sub _tokenize {
         }
         elsif ($5) {   # {%cycle ... %}
             my $group = q();
-            if (${$refsrc} =~ m/\G(?:$LSTR|([^\s:,'"]+))\s*[:]\s*/gcomsx) {
+            if (${$refsrc} =~ m/\G(?:$LSTR|(\w[-\w]*))\s*[:]\s*/gcomsx) {
                 $group = $LAST_PAREN_MATCH;
             }
             my @list = ();
