@@ -63,7 +63,7 @@ my %COMPARE = (
 my $LNUM = qr/([+-]?[0-9]+(?:[.][0-9]+)?(?:[eE][+-]?[0-9]+)?)/msx;
 my $LSTR = qr/'([^']*)'|"([^"]*)"/msx;
 my $LPUNCT = qr/([:,()\[\]]|==?|!=?|<[=>]?|>=?|\|\|?|&&|[.][.]?)/msx;
-my $LWORD = qr/([^\W0-9]\w*[?]?)/msx;
+my $LWORD = qr/([^\W0-9_]\w*[?]?)/msx;
 my $LTAG = 'assign|ca(?:pture|se)|decrement|elsif|for'
            . '|i(?:f|nc(?:rement|lude))|unless|when';
 my $LTAG1 = 'break|continue|else|ifchanged'
