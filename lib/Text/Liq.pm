@@ -667,8 +667,8 @@ $EVAL_BLOCK[$ASSIGN] = \&_eval_assign;
 $EVAL_BLOCK[$DECREMENT] = \&_eval_decrement;
 $EVAL_BLOCK[$INCREMENT] = \&_eval_increment;
 
-my $THROW_BREAK = __PACKAGE__ . '::Break';
-my $THROW_CONTINUE = __PACKAGE__ . '::Continue';
+my $THROW_BREAK = __PACKAGE__ . '::ThrowBreak';
+my $THROW_CONTINUE = __PACKAGE__ . '::ThrowContinue';
 
 sub _eval_block {
     my($out, $template, $i, $env, $filters, $dir) = @_;
