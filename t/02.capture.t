@@ -57,3 +57,16 @@ __END__
 +{}
 --- expected
 <tt>3-3</tt>
+
+=== break in capture in for-statement
+--- input
+{% assign x = '' %}
+{% for number in (1..2) %}
+{% capture x %}abc{%break%}def{% endcapture %}
+{% endfor %}
+<tt>{{ x }}</tt>
+--- param
++{}
+--- expected
+<tt></tt>
+

@@ -12,18 +12,21 @@ our $VERSION = '0.01';
 
 my $STACK_LIMIT = 50;
 
-my(# 58 terminals
+my(# 50 terminals
     $EOF, $PLAIN, $CONST, $STRING, $NUMBER, $ESCAPE, $NOESCAPE,
     $ASSIGN, $CAPTURE, $DECREMENT, $INCREMENT, $INCLUDE, $CASE,
     $FOR, $IF, $UNLESS, $ELSE, $IFCHANGED, $CYCLE, $FILTER,
     $OR, $AND, $NOT, $RANGE, $REVERSED, $BREAK, $CONTINUE,
-    $EQ, $NE, $LT, $LE, $GT, $GE, $CONTAINS, $VARIABLE,
     $WITH, $EQUIV, $IN, $DOT, $COLON, $COMMA,
     $IDENT, $CMP, $R, $RR, $RRR, $ELSIF, $WHEN, 
     $ENDIF, $ENDUNLESS, $ENDFOR, $ENDCASE, $ENDCAPTURE, $ENDIFCHANGED,
     $LPAREN, $RPAREN, $LSQUARE, $RSQUARE,
-) = (0 .. 57);
+) = (0 .. 49);
 my $LAST_TERMINAL = $RSQUARE;
+# template symbol $EOF .. $CONTINUE, $EQ .. $BEGIN
+my(
+    $EQ, $NE, $LT, $LE, $GT, $GE, $CONTAINS, $VARIABLE, $BEGIN,
+) = ($WITH .. $WITH+8);
 my $NONTERM = -100;
 my(# 23 nonterminals
     $block, $elsif_clauses, $else_clause, $plains, $when_clauses,
@@ -267,7 +270,7 @@ sub parse {
     my $refsrc = \$source;
     my $token_list = _tokenize($refsrc);
     my $next_token = $token_list->[0][0];
-    my $output = [[]];
+    my $output = [[$BEGIN]];
     my @stack = ($block, $EOF);
     while (@stack) {
         my $symbol = shift @stack;
@@ -527,6 +530,7 @@ sub _begin_node {
 sub _end_node { splice @{$_[0]}, -3 }
 
 sub _ignore { pop @{$_[0]} }
+
 ## use critic qw(ArgUnpacking FinalReturn)
 
 # $token_list : [[$token_kind, $token_value, pointer(${$refsrc})]]
@@ -644,7 +648,7 @@ sub render {
     my $dir = $resources{'directory'};
     my $string = q();
     my $env = [[{'ifchanged' => q()}, $var || {}, {}]];
-    _eval_block(\$string, $template, 0, $env, $filters, $dir);
+    _eval_block(\$string, $template, $env, $filters, $dir);
     return $string;
 }
 
@@ -671,7 +675,8 @@ my $THROW_BREAK = __PACKAGE__ . '::ThrowBreak';
 my $THROW_CONTINUE = __PACKAGE__ . '::ThrowContinue';
 
 sub _eval_block {
-    my($out, $template, $i, $env, $filters, $dir) = @_;
+    my($out, $template, $env, $filters, $dir) = @_;
+    my $i = 1;
     while ($i < @{$template}) {
         my $expr = $template->[$i++];
         my $func = $expr->[0];
@@ -693,13 +698,9 @@ sub _eval_block {
                 if (ref $clause->[0]) {
                     my $c = _eval_expression($clause->[0], $env);
                     next if ! $c;
-                    _eval_block($out, $clause, 1, $env, $filters, $dir);
-                    last;
                 }
-                else {
-                    _eval_block($out, $clause, 1, $env, $filters, $dir);
-                    last;
-                }
+                _eval_block($out, $clause, $env, $filters, $dir);
+                last;
             }
             next;
         }
@@ -754,16 +755,16 @@ sub _eval_for {
     else {
         @array = splice @array, $offset, $limit;
     }
-    if ($reversed) {
-        @array = reverse @array;
-    }
     $scope->[0]{$group} = $offset + (scalar @array);
     my $last_index = $#array;
     if ($last_index < 0) {
         if (exists $expr->[2]) {
-            _eval_block($out, $expr->[2], 1, $env, $filters, $dir);
+            _eval_block($out, $expr->[2], $env, $filters, $dir);
         }
         return;
+    }
+    if ($reversed) {
+        @array = reverse @array;
     }
     push @{$scope}, {$for->[0][1] => undef};
     my($ref, $reftype, $slot) = _eval_variable($for->[0], $env);
@@ -779,7 +780,7 @@ sub _eval_for {
             'length' => $last_index + 1,
         };
         if (! eval{
-            _eval_block($out, $expr->[1], 1, $env, $filters, $dir);
+            _eval_block($out, $expr->[1], $env, $filters, $dir);
             1;
         }) {
             my $e = $@;
@@ -817,7 +818,7 @@ sub _eval_case {
     my($out, $expr, $env, $filters, $dir) = @_;
     my $v0 = _eval_value($expr->[1][0], $env);
     if (@{$expr->[1]} > 1) {
-        _eval_block($out, $expr->[1], 1, $env, $filters, $dir);
+        _eval_block($out, $expr->[1], $env, $filters, $dir);
     }
     my $j = 2;
     while ($j < @{$expr}) {
@@ -832,13 +833,9 @@ sub _eval_case {
                 }
             }
             next if ! $found;
-            _eval_block($out, $clause, 1, $env, $filters, $dir);
-            last;
         }
-        else {
-            _eval_block($out, $clause, 1, $env, $filters, $dir);
-            last;
-        }
+        _eval_block($out, $clause, $env, $filters, $dir);
+        last;
     }
     return;
 }
@@ -860,7 +857,7 @@ sub _eval_cycle {
 sub _eval_ifchanged {
     my($out, $expr, $env, $filters, $dir) = @_;
     my $cap = q();
-    _eval_block(\$cap, $expr, 1, $env, $filters, $dir);
+    _eval_block(\$cap, $expr, $env, $filters, $dir);
     return if $cap eq $env->[-1][0]{'ifchanged'};
     ${$out} .= $cap;
     $env->[-1][0]{'ifchanged'} = $cap;
@@ -887,7 +884,7 @@ sub _eval_include {
             $ref->{$slot} = $args[$i];
         }
         $env->[-1][-1]{$name} = $name_value;
-        _eval_block($out, $subexpr, 0, $env, $filters, $dir);
+        _eval_block($out, $subexpr, $env, $filters, $dir);
         pop @{$env};
     }
     return;
@@ -912,7 +909,7 @@ sub _eval_assign {
 sub _eval_capture {
     my($out, $expr, $env, $filters, $dir) = @_;
     my $cap = q();
-    _eval_block(\$cap, $expr->[1], 1, $env, $filters, $dir);
+    _eval_block(\$cap, $expr->[1], $env, $filters, $dir);
     my $head = $expr->[1][0];
     my $i = 1;
     while ($i < @{$head}) {
@@ -1002,20 +999,19 @@ sub _eval_value {
     # $env = [.., [$stash, $frame0, $frame1, ..]];
     my $type = $expr->[0];
     return $expr->[1] if $type != $VARIABLE;
-    my $value;
+    my $value = undef;
     my $i = 1;
     my $slot = $expr->[$i++];
     my $scope = $env->[-1];
     my $k = $#{$scope};
     while ($k > 0) {
         if (exists $scope->[$k]{$slot}) {
-            $value = $scope->[$k];
+            $value = $scope->[$k]{$slot};
             last;
         }
         --$k;
     }
     return $value if ! defined $value;
-    $value = $value->{$slot};
     my $reftype = ref $value;
     while ($i < @{$expr}) {
         my $slot = $expr->[$i++];
@@ -1037,7 +1033,8 @@ sub _eval_value {
             }
             elsif (! $reftype) {
                 $value
-                    = $slot eq 'size' || $slot eq 'length' ? length $value
+                    = $slot eq 'size' ? length $value
+                    : $slot eq 'length' ? length $value
                     : $slot eq 'empty?' ? 0 == length $value
                     : undef;
             }
@@ -1057,8 +1054,8 @@ sub _eval_value {
                 $value = undef;
             }
         }
+        return $value if ! defined $value;
         $reftype = ref $value;
-        last if ! defined $value;
     }
     return $value;
 }
