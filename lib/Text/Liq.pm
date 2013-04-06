@@ -281,20 +281,10 @@ sub parse {
             $symbol->($output);
             next;
         }
-        if ($symbol == $srcmark) {
-            $possrc = $token_list->[0][2];
-            next;
-        }
-        if ($symbol == $srcyank) {
-            my $i = $token_list->[0][2];
-            my $s = substr ${$refsrc}, $possrc, $i - $possrc;
-            push @{$output}, $s;
-            next;
-        }
-        if ($symbol == $EOF) {
+        elsif ($symbol == $EOF) {
             last if $next_token == $EOF;
         }
-        elsif ($symbol >= $PLAIN && $symbol <= $RSQUARE) {
+        elsif ($symbol <= $LAST_TERMINAL) {
             if ($symbol != $next_token) {
                 _error($refsrc, $symbol, $token_list->[0]);
             }
@@ -303,9 +293,24 @@ sub parse {
             $next_token = $token_list->[0][0];
             next;
         }
-        if (my $symbols = $rule[$NONTERM+$symbol][$next_token]) {
-            unshift @stack, @{$symbols};
+        elsif ($symbol <= $LAST_NONTERMINAL) {
+            if (my $symbols = $rule[$NONTERM+$symbol][$next_token]) {
+                unshift @stack, @{$symbols};
+                next;
+            }
+        }
+        elsif ($symbol == $srcmark) {
+            $possrc = $token_list->[0][2];
             next;
+        }
+        elsif ($symbol == $srcyank) {
+            my $i = $token_list->[0][2];
+            my $s = substr ${$refsrc}, $possrc, $i - $possrc;
+            push @{$output}, $s;
+            next;
+        }
+        else {
+            croak "unknown symbol $symbol in the grammar rule.";
         }
         _error($refsrc, $symbol, $token_list->[0]);
     }
