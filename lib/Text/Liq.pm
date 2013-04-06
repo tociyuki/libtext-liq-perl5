@@ -37,6 +37,8 @@ my(# 23 nonterminals
     $expression2, $expression3, $expression4,
 ) = (0-$NONTERM .. 22-$NONTERM);
 my $LAST_NONTERMINAL = $expression4;
+my $srcmark = 200;
+my $srcyank = 201;
 my %LCONST = (
     'nil' => undef, 'null' => undef, 'NULL' => undef,
     'empty' => [], 'true' => 1, 'false' => q(),
@@ -100,7 +102,7 @@ $rule[$NONTERM+$block][$UNLESS] = [
     $block, $elsif_clauses, $else_clause,
     $ENDUNLESS, \&_end_node, $block];
 $rule[$NONTERM+$block][$FOR] = [
-    $FOR, $variable, $IN, $for_list, \&_make_for,
+    $FOR, $variable, $IN, $srcmark, $for_list, $srcyank, \&_make_for,
     $for_slice, $R, \&_append_for_slice, $block, $else_clause,
     $ENDFOR, \&_end_node, $block];
 $rule[$NONTERM+$block][$CASE] = [
@@ -268,6 +270,7 @@ for my $i (
 sub parse {
     my($class, $source) = @_;
     my $refsrc = \$source;
+    my $possrc = 0;
     my $token_list = _tokenize($refsrc);
     my $next_token = $token_list->[0][0];
     my $output = [[$BEGIN]];
@@ -276,6 +279,16 @@ sub parse {
         my $symbol = shift @stack;
         if (ref $symbol) {
             $symbol->($output);
+            next;
+        }
+        if ($symbol == $srcmark) {
+            $possrc = $token_list->[0][2];
+            next;
+        }
+        if ($symbol == $srcyank) {
+            my $i = $token_list->[0][2];
+            my $s = substr ${$refsrc}, $possrc, $i - $possrc;
+            push @{$output}, $s;
             next;
         }
         if ($symbol == $EOF) {
@@ -335,31 +348,16 @@ sub _make_unless {
 }
 
 sub _make_for {
-    my($v0, $v1, $v2, $v3) = splice @{$_[0]}, -4;
+    my($v0, $v1, $v2, $v3, $v4) = splice @{$_[0]}, -5;
     my $node = [$v0];
     push @{$_[0][-1]}, $node;
     push @{$_[0]}, $node;
     my $child = [[$v1, $v3]];
-    my $group = join q( ), $v0, _flatten($v3); #_flatten([$v1, $v3]);
+    $v4 =~ s/\s+//gmsx;
+    my $group = "for $v4";
     push @{$_[0][-1]}, $child;
     push @{$_[0]}, $child;
     push @{$_[0]}, [[$NUMBER, 0], [$CONST, undef], undef, $group];
-}
-
-sub _flatten {
-    my($array) = @_;
-    my @r;
-    my @stack = @{$array};
-    while (@stack) {
-        my $x = shift @stack;
-        if (ref $x) {
-            unshift @stack, @{$x};
-        }
-        else {
-            push @r, $x;
-        }
-    }
-    return @r;
 }
 
 sub _append_for_slice {
