@@ -232,7 +232,7 @@ for my $i ($OR, $RPAREN, $R) {
 }
 
 $rule[$NONTERM+$expression3][$LPAREN] = [
-    $LPAREN, $expression, $RPAREN, \&_make_subexpressio];
+    $LPAREN, $expression, $RPAREN, \&_make_subexpression];
 $rule[$NONTERM+$expression3][$NOT] = [
     $NOT, $value, \&_make_unary, $expression4];
 for my $i ($CONST, $IDENT, $STRING, $NUMBER) {

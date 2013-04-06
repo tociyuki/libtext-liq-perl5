@@ -188,3 +188,19 @@ __END__
 --- expected
 <tt>  true  </tt>
 
+=== subexpression
+--- input
+<tt>{% if (a or b) and c %}true{% else %}false{% endif %}</tt>
+--- param
++{'a' => 1==1, 'b' => 1!=1, 'c' => 1==1}
+--- expected
+<tt>true</tt>
+
+=== no subexpression
+--- input
+<tt>{% if a or b and c %}true{% else %}false{% endif %}</tt>
+--- param
++{'a' => 1!=1, 'b' => 1!=1, 'c' => 1==1}
+--- expected
+<tt>false</tt>
+
