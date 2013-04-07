@@ -1,4 +1,5 @@
 package Text::Liq;
+use 5.008002;
 use warnings;
 use strict;
 use Carp;
@@ -687,14 +688,14 @@ sub _eval_block {
             ${$out} .= $expr->[1];
             next;
         }
-        if ($func == $ESCAPE) {
+        elsif ($func == $ESCAPE) {
             my $s = _eval_value_pipeline($expr, 1, $env, $filters);
             $s = defined $s ? $s : q();
             $s =~ s/([&<>"'\\])/$XML_SPECIAL{$1}/egmsx;
             ${$out} .= $s;
             next;
         }
-        if ($func == $IF) {
+        elsif ($func == $IF) {
             my $j = 1;
             while ($j < @{$expr}) {
                 my $clause = $expr->[$j++];
@@ -911,22 +912,22 @@ sub _eval_assign {
 
 sub _eval_capture {
     my($out, $expr, $env, $filters, $dir) = @_;
-    my $cap = q();
-    _eval_block(\$cap, $expr->[1], $env, $filters, $dir);
+    my $buffer = q();
+    _eval_block(\$buffer, $expr->[1], $env, $filters, $dir);
     my $head = $expr->[1][0];
     my $i = 1;
     while ($i < @{$head}) {
-        $cap = _eval_filter($cap, $head->[$i++], $env, $filters);
+        $buffer = _eval_filter($buffer, $head->[$i++], $env, $filters);
     }
     my($ref, $reftype, $slot) = _eval_variable($head->[0], $env);
     if ($reftype eq 'HASH') {
-        $ref->{$slot} = $cap;
+        $ref->{$slot} = $buffer;
     }
     elsif ($reftype eq 'ARRAY') {
-        $ref->[$slot] = $cap;
+        $ref->[$slot] = $buffer;
     }
     elsif (eval { $ref->can($slot) }) {
-        $ref->$slot($cap);
+        $ref->$slot($buffer);
     }
     return;
 }
@@ -1137,7 +1138,7 @@ sub _eval_expression {
     if ($func == $OR) {
         return $lhs || _eval_expression($expr->[2], $env);
     }
-    if ($func == $AND) {
+    elsif ($func == $AND) {
         return $lhs && _eval_expression($expr->[2], $env);
     }
     return ! $lhs if $func == $NOT;
@@ -1453,6 +1454,34 @@ Text::Liq - Liquid markup template processor.
 
 =head1 DESCRIPTION
 
+Liquid markups meet the LL(1) syntax.
+
+Liquid from the states of RAILs arrived that its first authors
+wanted to work on the way of PHP's smarty template markups
+without evaling any translated scripts. It has gotten useful
+applications of recent years like as Jekyll weblog system
+used in github service.
+
+Although getting many users, Liquid was not gave the formal
+grammars and semantics. There are only natural explanations
+and programs and test codes. We expect to find same things on
+the almost template markups. Many of them have been based on
+the design pattern of the object oriented syntax tree composites
+since the monumental work of HTML-Template. It is resonable
+due to quick developments and frexibility of grammars at the
+growth. Absent of formal grammars and semantics often found
+in such cases.
+
+In the many template markups, it is interest that Liquid markups
+get friendly with the LL(1) syntax miraculously. Introducing
+few restrictions in the markups, it is easy to write one of 
+grammar classified the syntax. 
+
+This practical work shows that the template engine built from
+the grammar passes almost all tests from the original
+implementation. Additional keyword restriction presents
+the quick lexical scanning.
+
 =head1 METHODS 
 
 =over
@@ -1477,13 +1506,313 @@ Optional resources take
 
 =back
 
+=head1 MARKUP
+
+=head2 PLAIN
+
+    something data outside of template markups
+    '{%' raw '%}' RAWDATA '{%' endraw '%}'
+
+Puts into output themselves.
+
+=head2 CYCLE
+
+    '{%' cycle (?:CYCLE_GROUP ':')? CYCLE_VALUE (',' CYCLE_VALUE)* '%}'
+    where CYCLE_GROUP -> ['][^']*['] / ["][^"]*["] / [\w][-\w]*
+          CYCLE_VALUE -> ['][^']*['] / ["][^"]*["] / NUMBER_LITERAL
+
+Puts value of the list cyclic.
+
+=head2 ESCAPE
+
+   '{{' value pipeline '}}'
+   where
+      pipeline -> ('|' filter_name (':' value (',' value)*)? )*
+
+With escaping, gets value and puts it into output string after filtering.
+
+The values are one of a variable with selectors, a string literal,
+a number literal.
+
+=head2 NOESCAPE
+
+    '{{{' value pipeline '}}}'
+
+Without escaping, gets value and puts it into output string after filtering.
+
+=head2 SIDE EFFECT
+
+    '{%' 'assign' variable '=' value pipeline '%}'
+    '{%' 'increment' variable '%}'
+    '{%' 'decrement' variable '%}'
+
+Puts variable in the current lexical scope.
+When the variable is not exists, it binds in the top frame.
+For-statements only push new tempolary frames in the current scope.
+Include-statements push new scopes after the current scope.
+For each included template, the lexical scopes are separated.
+
+Increment-statements change variable values with post-increments.
+Decrement-statements change variable values with pre-decrements.
+
+=head2 CAPTURE
+
+    '{%' 'capture' variable pipeline '%}' block '{%' 'endcapture' '%}'
+
+Puts variable with rendering result of block without output.
+
+=head2 IFCHANGED
+
+    '{%' 'ifchanged' '%}' block '{%' 'endifchanged' '%}'
+
+Puts output if rendering results with block is changed.
+
+=head2 IF STATEMENT
+
+    '{%' 'if' expression '%}' block
+    ('{%' 'elsif expression '%}' block)*
+    ('{%' 'else' '%}' block)?
+    '{%' 'endif' '%}'
+
+Selects evaling block at the true result of expression.
+Text-Liq's true condition is same as Perl's way different
+from original Liquid in Ruby's way.
+All if-statements have same lexical scope surrounded them.
+
+=head2 UNLESS STATEMENT
+
+    '{%' 'unless' expression '%}' block
+    ('{%' 'elsif expression '%}' block)*
+    ('{%' 'else' '%}' block)?
+    '{%' 'endunless' '%}'
+
+Selects first evaling block at the false result of first expression.
+In otherwise, selects evaling blocks at the true result of expression.
+All unless-statements have same lexical scope surrounded them.
+
+=head2 CASE STATEMENT
+
+    '{%' 'case' value '%}'
+    ('{%' 'when' value ((','/'or') value)* '%}' block)*
+    ('{%' 'else' '%}' block)?
+    '{%' 'endcase' '%}'
+
+Selects evaling block at the same value of the case value.
+When-clauses allow one more value to compare the case value.
+Commas are same as or keywords. They give same effects.
+All case-statements have same lexical scope surrounded them.
+
+=head2 FOR STATEMENT
+
+    '{%' 'for' variable 'in' list slice '%}' block
+    ('{%' 'else' '%}' block)?
+    '{%' 'endfor' '%}'
+    where
+      list -> '(' value '..' value ')' / value
+      slice -> ( 'offset' ':' ('continue' / value)
+               / 'limit' ':' value
+               / 'reversed' )*
+
+Repeats block for each elements of sliced list.
+When sliced list is empty, evals else-block if specifed.
+At iterations, it push new frame in the scope for each time.
+The variable binds in the each frame.
+The each frame also has a forloop variable.
+
+    forloop.first   true if first element.
+    forloop.last    true if last element.
+    forloop.index   index number started from 1.
+    forloop.rindex  reverse index number started from 1.
+    forloop.index0  index number started from zero.
+    forloop.rindex0 reverse index number started from zero.
+    forloop.length  counts of sliced list.
+
+Before iteration, list can be sliced with offset, limit.
+It also can be reversed. For same lists, offset:continue
+resumes before iteration from last limited slicing (not breaked).
+
+=head2 BREAK CONTINUE STATEMENT
+
+    '{%' 'break' '%}'
+    '{%' 'continue' '%}'
+
+Breaks/Continues iterations of for-statement. They can appear
+outside of for-statement, but not work.
+
+=head1 GRAMMAR
+
+The LL(1) syntax grammar is wrote in Backus-Naur Form (BNF).
+
+    block
+     -> /* empty */
+      | PLAIN block   /* plain HTML contents out of template markups */
+      | statement block
+    
+    statement
+     -> '{{' value pipeline '}}'      /* escape */
+      | '{{{' value pipeline '}}}'    /* noescape */
+      | '{% assign' variable '=' value pipeline '%}'
+      | '{% decrement' variable '%}'
+      | '{% increment' variable '%}'
+      | '{% capture' variable pipeline '%}' block '{% endcapture %}'
+      | '{% ifchanged %}' block '{% endifchanged %}'
+      | '{% if' expression '%}'
+        block
+        elsif_clauses
+        else_clause
+        '{% endif %}'
+      | '{% unless' expression '%}'
+        block
+        elsif_clauses
+        else_clause
+        '{% endunless %}'
+      | '{% case' value '%}' plains
+        when_clauses
+        else_clause
+        '{% endcase %}'
+      | '{% for' variable 'in' for_list for_slice '%}'
+        block
+        else_clause
+        '{% endfor %}'
+      /* break and continue can put in some block, but only work in for-statement */
+      | '{% break %}'
+      | '{% continue %}'
+      | '{% include' value include_for include_arguments '%}'
+      /* following three statements need special treatments in the lexical scanner */
+      | '{% cycle' CYCLE_GROUP CYCLE_VALUES '%}'
+      | '{% raw %}' RAWDATA '{% endraw %}'
+      | '{% comment %}' COMMENTDATA '{% endcomment %}'
+    
+    elsif_clauses
+     -> /* empty */
+      | '{% elsif' expression '%}' block elsif_clauses
+    
+    else_clause
+     -> /* empty */
+      | '{% else %}' block
+    
+    /* here's definition allows empty when clause in case-statement */
+    when_clauses
+     -> /* empty */
+      | '{% when' value when_values '%}' block when_clauses
+    
+    /* Orignal Liquid only allows white spaces between case and when markups.
+       We relax the restriction. */
+    plains
+     -> /* empty */
+      | PLAIN plains
+    
+    pipeline
+     -> /* empty */
+      | '|' IDENT filter_arguments pipeline
+    
+    filter_arguments
+     -> /* empty */
+      | ':' value filter_comma_arguments
+    
+    filter_comma_arguments
+     -> /* empty */
+      | ',' value filter_comma_arguments
+    
+    for_list
+     -> '(' value '..' value ')'
+      | value
+    
+    for_slice
+     -> /* empty */
+      | 'offset' ':' offset_value for_slice
+      | 'limit' ':' value for_slice    /* also offset_value in Text-Liq */
+      | 'reversed' for_slice
+    
+    offset_value
+     -> 'continue'
+      | value
+    
+    when_values
+     -> /* empty */
+      | 'or' value when_values
+      | ','  value when_values    /* alias of or */
+    
+    include_for
+     -> /* empty */
+      | 'for' variable
+      | 'with' variable           /* alias of for */
+    
+    include_arguments
+     -> /* empty */
+      | variable ':' value include_comma include_arguments
+    
+    include_comma
+     -> /* empty */
+      | ','
+    
+    expression
+     -> expression3 expression2 expression1
+   
+    expression1
+     -> /* empty */
+      | 'or' expression3 expression2 expression1
+      | '||' expression3 expression2 expression1
+    
+    expression2
+     -> /* empty */
+      | 'and' expression3 expression2
+      | '&&' expression3 expression2
+    
+    expression3
+     -> '(' expression ')'
+      | 'not' value expression4
+      | '!' value expression4
+      | value expression4
+    
+    expression4
+     -> /* empty */
+      | CMP value
+    
+    CMP -> '==' | '!=' | <' | '<=' | '>' | '>=' | 'contains'
+    
+    value
+     -> variable
+      | 'nil' | 'null' | 'NULL' | 'empty' | 'true' | 'false'
+      | STRING
+      | NUMBER
+    
+    variable
+     -> IDENT selectors
+    
+    selectors
+     -> /* empty */
+      | '.' IDENT selectors
+      | '[' value ']' selectors
+    
+    /* lexical tokens in perl's regexp */
+    
+    '{% assign' -> m/\G\{%\s*assign\s+/gcmsx
+    '%}' -> m/\G%\}\n?/gcmsx  /* skipping newline is Text-Liq's way */
+    '{% endif %}' -> m/\G\{%\s*endif\s*\}%\n?/gcmsx
+    ',' -> m/\G,\s*/gcmsx
+    /* and so on */
+    CYCLE_GROUP
+     -> m/\G(?:(?:$STRING|\w[-\w]*)\s*:\s*)?/gcmsx
+            /* if absent then join q( ), @CYCLE_VALUES */
+    CYCLE_VALUES
+     -> m/\G(?:$STRING|$NUMBER)\s*(?:,\s*(?:$STRING|$NUMBER)\s*)*/gcmsx
+    /* Original Liquid allows also keyword, colons, and hyphens. */
+    IDENT -> m/\G(?!$KEYWORD)[^\W0-9_]\w*[?]?/gcmsx
+    /* Liquid does not allow any escape notations and interpolations. */
+    STRING -> m/\G(?:'([^']*)'|"([^"]*)")\s*/gcmsx
+    NUMBER -> m/\G[+-]?[0-9]+(?:[.][0-9]+)?(?:[eE][+-]?[0-9]+)?\s*/gcmsx
+    PLAIN -> m/\G(.*?)(?=\{[\{%])/gcmsx
+    RAWDATA -> m/\G(.*?)(?=\{%\s*endraw\s*%\})/gcmsx
+    COMMENTDATA -> m/\G(.*?)(?=\{%\s*endcomment\s*%\})/gcmsx
+
 =head1 DEPENDENCIES
 
 L<Scalar::Util>, L<Time::Piece>, L<Encode>
 
 =head1 SEE ALSO
 
-L<http://liquidmarkup.org/> - Ruby's Liquid markups.
+L<https://github.com/Shopify/liquid/wiki> - Ruby's Liquid markups.
 L<Template::Liquid> - Another Perl implementation.
 
 =head1 AUTHOR
