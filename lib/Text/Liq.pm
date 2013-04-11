@@ -273,7 +273,8 @@ sub parse {
     my $refsrc = \$source;
     my $possrc = 0;
     my $token_list = _tokenize($refsrc);
-    my $next_token = $token_list->[0][0];
+    my $token_pointer = 0;
+    my $next_token = $token_list->[$token_pointer][0];
     my $output = [[$BEGIN]];
     my @stack = ($block, $EOF);
     while (@stack) {
@@ -287,11 +288,11 @@ sub parse {
         }
         elsif ($symbol <= $LAST_TERMINAL) {
             if ($symbol != $next_token) {
-                _error($refsrc, $symbol, $token_list->[0]);
+                _error($refsrc, $symbol, $token_list->[$token_pointer]);
             }
-            push @{$output}, $token_list->[0][1];
-            shift @{$token_list};
-            $next_token = $token_list->[0][0];
+            push @{$output}, $token_list->[$token_pointer][1];
+            ++$token_pointer;
+            $next_token = $token_list->[$token_pointer][0];
             next;
         }
         elsif ($symbol <= $LAST_NONTERMINAL) {
@@ -301,11 +302,11 @@ sub parse {
             }
         }
         elsif ($symbol == $srcmark) {
-            $possrc = $token_list->[0][2];
+            $possrc = $token_list->[$token_pointer][2];
             next;
         }
         elsif ($symbol == $srcyank) {
-            my $i = $token_list->[0][2];
+            my $i = $token_list->[$token_pointer][2];
             my $s = substr ${$refsrc}, $possrc, $i - $possrc;
             push @{$output}, $s;
             next;
@@ -313,7 +314,7 @@ sub parse {
         else {
             croak "unknown symbol $symbol in the grammar rule.";
         }
-        _error($refsrc, $symbol, $token_list->[0]);
+        _error($refsrc, $symbol, $token_list->[$token_pointer]);
     }
     return $output->[0];
 }
