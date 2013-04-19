@@ -95,11 +95,11 @@ $rule[$NONTERM+$block][$ASSIGN] = [
     $ASSIGN, $variable, $EQUIV, $value, \&_make_assign, $pipeline, $R,
     \&_append_first, $block];
 $rule[$NONTERM+$block][$IF] = [
-    $IF, \&_begin_node, $expression, $R, \&_append_first,
+    $IF, \&_make_if, $expression, $R, \&_append_first,
     $block, $elsif_clauses, $else_clause,
     $ENDIF, \&_end_node, $block];
 $rule[$NONTERM+$block][$UNLESS] = [
-    $UNLESS, \&_begin_node, $expression, \&_make_unless, $R, \&_append_first,
+    $UNLESS, \&_make_if, $expression, \&_flip_unless, $R, \&_append_first,
     $block, $elsif_clauses, $else_clause,
     $ENDUNLESS, \&_end_node, $block];
 $rule[$NONTERM+$block][$FOR] = [
@@ -348,7 +348,7 @@ sub _make_assign {
     push @{$_[0]}, [$v0, $v1, $v3];
 }
 
-sub _make_unless {
+sub _flip_unless {
     my $v = pop @{$_[0]};
     $_[0][-2][0] = $IF;
     push @{$_[0]}, [$NOT, $v];
@@ -522,7 +522,7 @@ sub _append_second3 {
     push @{$_[0][-1]}, $y;
 }
 
-sub _begin_node {
+sub _make_if {
     my $tag = pop @{$_[0]};
     my $node = [$tag];
     push @{$_[0][-1]}, $node;
