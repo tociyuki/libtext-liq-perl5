@@ -327,8 +327,7 @@ sub parse {
         elsif ($symbol <= $LAST_NONTERMINAL) {
             my $s1 = $rule[$symbol] + $next_token;
             if (exists $rule[$s1] && $rule_check[$s1] == $symbol) {
-                my $symbols = $rule[$s1];
-                unshift @stack, @{$symbols};
+                unshift @stack, @{$rule[$s1]};
                 next;
             }
         }
@@ -662,8 +661,8 @@ sub _tokenize {
                 next;
             }
             elsif (defined $5) {
-                my $n = do{ no integer; 0 + $5 };
-                push @token_list, [$NUMBER, [$NUMBER, $n], $i];
+                no integer;
+                push @token_list, [$NUMBER, [$NUMBER, 0 + $5], $i];
                 next;
             }
             push @token_list, [$STRING, [$STRING, $LAST_PAREN_MATCH], $i];
