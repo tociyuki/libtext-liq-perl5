@@ -775,7 +775,7 @@ sub _eval_for {
     my $limit = _eval_value($for->[3], $env);
     my $reversed = $for->[4];
     my $group = $for->[5];
-    if ($offset->[0] eq $CONTINUE) {
+    if ($offset->[0] == $CONTINUE) {
         $offset = $scope->[0]{$group} ||= 0;
     }
     else {
