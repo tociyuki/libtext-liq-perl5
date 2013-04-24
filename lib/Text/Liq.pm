@@ -1096,59 +1096,50 @@ sub _eval_value {
 }
 
 sub _eval_variable {
-    my($expr, $env) = @_;
+    my($exp, $env) = @_;
     my $i = 1;
-    my $slot = $expr->[$i++];
+    my $slot1 = $exp->[$i++];
+    my $refslot1 = ref $slot1;
     my $scope = $env->[-1];
     my $ref = $scope->[-1];
     my $k = $#{$scope};
     while ($k > 0) {
-        if (exists $scope->[$k]{$slot}) {
+        if (exists $scope->[$k]{$slot1}) {
             $ref = $scope->[$k];
             last;
         }
         --$k;
     }
     my $reftype = ref $ref;
-    while ($i < @{$expr}) {
-        my $slot1 = $slot;
-        $slot = $expr->[$i++];
-        if (! ref $slot1) {
-            if ($reftype eq 'HASH') {
-                if (! exists $ref->{$slot1} || ref $ref->{$slot1} ne 'HASH') {
-                    $ref->{$slot1} = {};
-                }
-                $ref = $ref->{$slot1};
+    while ($i < @{$exp}) {
+        my $slot0 = $slot1;
+        my $refslot0 = $refslot1;
+        $slot1 = $exp->[$i++];
+        $refslot1 = ref $slot1;
+        if (ref $slot1) {
+            $slot1 = _eval_value($slot1, $env);
+        }
+        if ($reftype eq 'HASH') {
+            if (! exists $ref->{$slot0} || ref $ref->{$slot0} ne 'HASH') {
+                $ref->{$slot0} = {};
             }
-            else {
-                $ref = eval { $ref->can($slot1) } ? $ref->$slot1 : undef;
+            $ref = $ref->{$slot0};
+        }
+        elsif ($refslot0 && $reftype eq 'ARRAY') {
+            if (! exists $ref->[$slot0] || ref $ref->[$slot0] ne 'ARRAY') {
+                $ref->[$slot0] = {};
             }
+            $ref = $ref->[$slot0];
+        }
+        elsif (! $refslot0 && eval { $ref->can($slot0) }) {
+            $ref = $ref->$slot0;
         }
         else {
-            $slot1 = _eval_value($slot1, $env);
-            if ($reftype eq 'HASH') {
-                if (! exists $ref->{$slot1} || ref $ref->{$slot1} ne 'HASH') {
-                    $ref->{$slot1} = {};
-                }
-                $ref = $ref->{$slot1};
-            }
-            elsif ($reftype eq 'ARRAY') {
-                if (! exists $ref->[$slot1] || ref $ref->[$slot1] ne 'ARRAY') {
-                    $ref->[$slot1] = {};
-                }
-                $ref = $ref->[$slot1];
-            }
-            else {
-                $ref = undef;
-            }
+            croak "unknown variable type.\n";
         }
         $reftype = ref $ref;
-        last if ! defined $ref;
     }
-    if (ref $slot) {
-        $slot = _eval_value($slot, $env);
-    }
-    return ($ref, $reftype, $slot);
+    return ($ref, $reftype, $slot1);
 }
 
 my @EVAL_EXPRESSION;
